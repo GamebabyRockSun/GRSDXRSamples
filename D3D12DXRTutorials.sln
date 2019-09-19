@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29215.179
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "9-RayTracingBase", "9-RayTracingBase\9-RayTracingBase.vcxproj", "{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FallbackLayer", "RayTracingFallback\Libraries\D3D12RaytracingFallback\src\FallbackLayer.vcxproj", "{4BE280A6-1066-41CA-ACDD-6BB7E532508B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Profile|x64 = Profile|x64
+		Profile|x86 = Profile|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Debug|x64.ActiveCfg = Debug|x64
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Debug|x64.Build.0 = Debug|x64
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Debug|x86.ActiveCfg = Debug|Win32
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Debug|x86.Build.0 = Debug|Win32
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Profile|x64.ActiveCfg = Release|x64
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Profile|x64.Build.0 = Release|x64
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Profile|x86.ActiveCfg = Release|Win32
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Profile|x86.Build.0 = Release|Win32
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Release|x64.ActiveCfg = Release|x64
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Release|x64.Build.0 = Release|x64
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Release|x86.ActiveCfg = Release|Win32
+		{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}.Release|x86.Build.0 = Release|Win32
+		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Debug|x64.ActiveCfg = Debug|x64
+		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Debug|x64.Build.0 = Debug|x64
+		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Debug|x86.ActiveCfg = Debug|x64
+		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Profile|x64.ActiveCfg = Profile|x64
+		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Profile|x64.Build.0 = Profile|x64
+		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Profile|x86.ActiveCfg = Profile|x64
+		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Release|x64.ActiveCfg = Release|x64
+		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Release|x64.Build.0 = Release|x64
+		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Release|x86.ActiveCfg = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {815052FD-1C29-4131-9C14-1535E1A8D25A}
+	EndGlobalSection
+EndGlobal
