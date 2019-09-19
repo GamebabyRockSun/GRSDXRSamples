@@ -27,8 +27,8 @@
 #include <dxgidebug.h>
 #endif
 
+#include "..\Commons\GRSMem.h"
 #include "..\Commons\GRSCOMException.h"
-#include "..\Commons\GRSD3DInclude.h"
 #include "Shader\RayTracingHlslCompat.h" //shader 和 C++代码中使用相同的头文件定义常量结构体 以及顶点结构体等
 
 #include "../RayTracingFallback/Libraries/D3D12RaytracingFallback/Include/d3dx12.h"

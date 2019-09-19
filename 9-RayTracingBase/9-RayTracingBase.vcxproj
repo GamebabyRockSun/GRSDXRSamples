@@ -165,7 +165,6 @@ PostbuildCopy.bat "$(SolutionDir)$(Configuration)\$(Platform)\"</Command>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Commons\GRSCOMException.h" />
-    <ClInclude Include="..\Commons\GRSD3DInclude.h" />
     <ClInclude Include="..\Commons\GRSMem.h" />
     <ClInclude Include="Shader\HlslCompat.h" />
     <ClInclude Include="Shader\RayTracingHlslCompat.h" />
