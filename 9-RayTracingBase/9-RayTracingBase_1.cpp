@@ -17,7 +17,7 @@
 #include <dxgidebug.h>
 #endif
 
-#include "..\WindowsCommons\d3dx12.h"
+#include "..\RayTracingFallback\Libraries\D3D12RaytracingFallback\Include\d3dx12.h"
 
 using namespace Microsoft;
 using namespace Microsoft::WRL;
@@ -94,10 +94,10 @@ inline void GRS_SetDXGIDebugNameIndexed(IDXGIObject* pObject, LPCWSTR name, UINT
 }
 #else
 
-inline void GRS_SetDXGIDebugName(ID3D12Object*, LPCWSTR)
+inline void GRS_SetDXGIDebugName(IDXGIObject*, LPCWSTR)
 {
 }
-inline void GRS_SetDXGIDebugNameIndexed(ID3D12Object*, LPCWSTR, UINT)
+inline void GRS_SetDXGIDebugNameIndexed(IDXGIObject*, LPCWSTR, UINT)
 {
 }
 
