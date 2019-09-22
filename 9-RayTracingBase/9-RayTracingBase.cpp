@@ -364,7 +364,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 			HRESULT hr2 = D3D12CreateDevice(pIDXGIAdapter1.Get(), emMinFeature, IID_PPV_ARGS(&pID3D12DeviceTemp));
 
 			// 综合以上两个调用的结果就可以确定我们能不能打开DXR，至少我们可以打开DXR Fallback层支持，也就是用通用计算能力虚拟DXR
-			if (!(SUCCEEDED(hr1) && SUCCEEDED(hr2)))
+			if (!(SUCCEEDED(hr1) || SUCCEEDED(hr2)))
 			{
 				::MessageBox(hWnd
 					, _T("非常抱歉的通知您，\r\n您系统中最NB的显卡也不能支持兼容级别的光追渲染，例子没法继续运行！\r\n程序将退出！")
