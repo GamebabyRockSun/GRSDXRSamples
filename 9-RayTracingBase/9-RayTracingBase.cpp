@@ -303,12 +303,16 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 			RECT rtWnd = { 0, 0, iWidth, iHeight };
 			AdjustWindowRect(&rtWnd, dwWndStyle, FALSE);
 
+			// 计算窗口居中的屏幕坐标
+			INT posX = (GetSystemMetrics(SM_CXSCREEN) - rtWnd.right - rtWnd.left) / 2;
+			INT posY = (GetSystemMetrics(SM_CYSCREEN) - rtWnd.bottom - rtWnd.top) / 2;
+
 			hWnd = CreateWindowW(
 				GRS_WND_CLASS_NAME
 				, GRS_WND_TITLE
 				, dwWndStyle
-				, CW_USEDEFAULT
-				, 0
+				, posX
+				, posY
 				, rtWnd.right - rtWnd.left
 				, rtWnd.bottom - rtWnd.top
 				, nullptr
