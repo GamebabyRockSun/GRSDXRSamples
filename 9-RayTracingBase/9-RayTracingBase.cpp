@@ -7,16 +7,6 @@
 #include <atlbase.h>
 #include <atlcoll.h> //for atl array
 #include <atlconv.h> //for T2A
-#include <stdlib.h>
-#include <sstream>
-#include <iomanip>
-#include <list>
-#include <string>
-#include <shellapi.h>
-#include <memory>
-#include <unordered_map>
-#include <vector>
-#include <assert.h>
 #include <fstream>  //for ifstream
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
