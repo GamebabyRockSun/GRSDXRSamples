@@ -353,51 +353,55 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 		//=====================================================================================================================
 		// 检测适配器是否支持兼容级别的光追渲染，不支持，就彻底无法了，只能退出
 		{
-			ComPtr<ID3D12Device> pID3D12DeviceTemp;
-			UUID UUIDExperimentalFeatures[] = { D3D12ExperimentalShaderModels };
-
-			// 打开扩展属性支持
-			HRESULT hr1 = D3D12EnableExperimentalFeatures(1, UUIDExperimentalFeatures, nullptr, nullptr);
-			// 创建一个设备试试看行不行
-			HRESULT hr2 = D3D12CreateDevice(pIDXGIAdapter1.Get(), emMinFeature, IID_PPV_ARGS(&pID3D12DeviceTemp));
-
-			// 综合以上两个调用的结果就可以确定我们能不能打开DXR，至少我们可以打开DXR Fallback层支持，也就是用通用计算能力虚拟DXR
-			if ( !(SUCCEEDED(hr1) || SUCCEEDED(hr2)) )
+			// 创建一个设备试试看DX12行不行
+			ComPtr<ID3D12Device> pID3DDeviceTmp;
+			HRESULT hr2 = D3D12CreateDevice(pIDXGIAdapter1.Get(), emMinFeature, IID_PPV_ARGS(&pID3DDeviceTmp));
+			if (!SUCCEEDED(hr2))
 			{
 				::MessageBox(hWnd
-					, _T("非常抱歉的通知您，\r\n您系统中最NB的显卡也不能支持兼容级别的光追渲染，例子没法继续运行！\r\n程序将退出！")
+					, _T("非常抱歉的通知您，\r\n您系统中最NB的显卡也不能支持DX12，例子没法继续运行！\r\n程序将退出！")
 					, GRS_WND_TITLE
 					, MB_OK | MB_ICONINFORMATION);
 
 				return -1;
 			}
-		}
-
-		// 进一步检测DXR支持到什么级别
-		{
-			D3D12_FEATURE_DATA_D3D12_OPTIONS5 stFeatureSupportData = {};
-
-			// 创建D3D12设备
-			GRS_THROW_IF_FAILED(D3D12CreateDevice(pIDXGIAdapter1.Get(), emMinFeature, IID_PPV_ARGS(&pID3D12Device4)));
-			GRS_SET_D3D12_DEBUGNAME_COMPTR(pID3D12Device4);
-			// 检测DXR支持情况(下面这个检测调用失败可以忽略，但是建议有条件的要升级硬件及Win10 （1809 17763）以上版本)
-			HRESULT hr = pID3D12Device4->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &stFeatureSupportData, sizeof(stFeatureSupportData));
-
-			//记录是否是直接支持DXR，如果变量为FALSE，那么就是Fallback方式支持，可以理解为老D3D中的软件模拟驱动支持之类
-			//目前只有N家20系以上的显卡完全支持DXR，低一点的到GTX9xx以上都是兼容方式
-			bISDXRSupport = SUCCEEDED(hr) && (stFeatureSupportData.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED);
 
 			DXGI_ADAPTER_DESC1 stAdapterDesc = {};
 			pIDXGIAdapter1->GetDesc1(&stAdapterDesc);
+
+			D3D12_FEATURE_DATA_D3D12_OPTIONS5 stFeatureSupportData = {};
+			HRESULT hr = pID3DDeviceTmp->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &stFeatureSupportData, sizeof(stFeatureSupportData));
+			//检测硬件是否是直接支持DXR
+			bISDXRSupport = SUCCEEDED(hr) && (stFeatureSupportData.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED);
+
 			if (bISDXRSupport)
 			{
 				GRS_PRINTF(_T("恭喜！您的显卡“%s”直接支持DXR！\n"), stAdapterDesc.Description);
 			}
 			else
 			{
-				GRS_PRINTF(_T("非常遗憾！您的显卡“%s”不直接支持DXR，将使用Fallback兼容模式运行！\n"), stAdapterDesc.Description);
-			}
+				UUID UUIDExperimentalFeatures[] = { D3D12ExperimentalShaderModels };
+				// 打开扩展属性支持
+				HRESULT hr1 = D3D12EnableExperimentalFeatures(1, UUIDExperimentalFeatures, nullptr, nullptr);
+				//打开DXR Fallback层支持，也就是用通用计算能力虚拟DXR
+				if ( ! SUCCEEDED(hr1) )
+				{
+					::MessageBox(hWnd
+						, _T("非常抱歉的通知您，\r\n您系统中最NB的显卡既不支持硬件DXR也不支持兼容性的Fallback方式的DXR，例子没法继续运行！\r\n您可以打开Windows系统开发模式开关后再试试。\r\n程序将退出！")
+						, GRS_WND_TITLE
+						, MB_OK | MB_ICONINFORMATION);
 
+					return -1;
+				}
+				else
+				{
+					GRS_PRINTF(_T("您的显卡“%s”不直接支持硬件DXR，将使用Fallback兼容模式运行！\n"), stAdapterDesc.Description);
+				}
+			}
+			pID3DDeviceTmp.Reset();
+
+			GRS_THROW_IF_FAILED(D3D12CreateDevice(pIDXGIAdapter1.Get(), emMinFeature, IID_PPV_ARGS(&pID3D12Device4)));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pID3D12Device4);
 		}
 		//=====================================================================================================================
 
