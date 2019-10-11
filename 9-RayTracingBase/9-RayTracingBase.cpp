@@ -551,7 +551,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 			pID3D12Device4->CreateUnorderedAccessView(pIDXRUAVBufs.Get(), nullptr, &stUAVDesc, stUAVDescriptorHandle);
 		}
 
-		//创建跟签名 注意DXR中有两个根签名，一个是全局（Global）根签名另一个是本地（Local）根签名
+		//创建根签名 注意DXR中有两个根签名，一个是全局（Global）根签名另一个是本地（Local）根签名
 		{
 			CD3DX12_DESCRIPTOR_RANGE stRanges[2] = {}; // Perfomance TIP: Order from most frequent to least frequent.
 			stRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);  // 1 output texture
@@ -730,7 +730,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 
 			// Create the state object.
 			if (!bISDXRSupport)
-			{
+			{// Fallback 
 				GRS_THROW_IF_FAILED(pID3D12DXRFallbackDevice->CreateStateObject(objRaytracingPipeline, IID_PPV_ARGS(&pIDXRFallbackPSO)));
 			}
 			else // DirectX Raytracing
@@ -985,7 +985,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 
 				if ( !pID3D12DXRFallbackDevice->UsingRaytracingDriver() )
 				{
-					//nDescriptorHeapIndex = AllocateDescriptor(&stBottomLevelDescriptor);
 					pID3D12Device4->CreateUnorderedAccessView(pIUAVBottomLevelAccelerationStructure.Get(), nullptr, &stRawBufferUavDesc, stBottomLevelDescriptor);
 				}
 				stInstanceDesc.AccelerationStructure = pID3D12DXRFallbackDevice->GetWrappedPointerSimple(c_nDSHIndxASBottom1
@@ -1041,12 +1040,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 				rawBufferUavDesc.Buffer.NumElements = nNumBufferElements;
 
 				// Only compute fallback requires a valid descriptor index when creating a wrapped pointer.
-				CD3DX12_CPU_DESCRIPTOR_HANDLE stBottomLevelDescriptor(pIDXRUAVHeap->GetCPUDescriptorHandleForHeapStart(), c_nDSHIndxASBottom2, nSRVDescriptorSize);
+				CD3DX12_CPU_DESCRIPTOR_HANDLE stTopLevelDescriptor(pIDXRUAVHeap->GetCPUDescriptorHandleForHeapStart(), c_nDSHIndxASBottom2, nSRVDescriptorSize);
 
 				if (!pID3D12DXRFallbackDevice->UsingRaytracingDriver())
 				{
-					//descriptorHeapIndex = AllocateDescriptor(&bottomLevelDescriptor);
-					pID3D12Device4->CreateUnorderedAccessView(pIUAVTopLevelAccelerationStructure.Get(), nullptr, &rawBufferUavDesc, stBottomLevelDescriptor);
+					pID3D12Device4->CreateUnorderedAccessView(pIUAVTopLevelAccelerationStructure.Get(), nullptr, &rawBufferUavDesc, stTopLevelDescriptor);
 				}
 				pFallbackTopLevelAccelerationStructurePointer = pID3D12DXRFallbackDevice->GetWrappedPointerSimple(c_nDSHIndxASBottom2
 					, pIUAVTopLevelAccelerationStructure->GetGPUVirtualAddress());
