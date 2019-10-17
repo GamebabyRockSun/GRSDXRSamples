@@ -63,8 +63,9 @@ using namespace DirectX;
 #if defined(_DEBUG)
 //使用控制台输出调试信息，方便多线程调试
 #define GRS_INIT_OUTPUT() 	if (!::AllocConsole()){throw CGRSCOMException(HRESULT_FROM_WIN32(GetLastError()));}
-#define GRS_FREE_OUTPUT()	::_tsystem(_T("PAUSE"));\
-							::FreeConsole();
+//#define GRS_FREE_OUTPUT()	::_tsystem(_T("PAUSE"));\
+//							::FreeConsole();
+#define GRS_FREE_OUTPUT()	::FreeConsole();
 #define GRS_USEPRINTF() TCHAR pBuf[1024] = {};TCHAR pszOutput[1024] = {};
 #define GRS_PRINTF(...) \
     StringCchPrintf(pBuf,1024,__VA_ARGS__);\
@@ -749,6 +750,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 
 			LoadMeshVertex(pszMeshFileName, nVertexCnt, pstVertices, pnIndices);
 			nIndexCnt = nVertexCnt;
+
 			//*******************************************************************************************
 			//nIndexCnt = nVertexCnt = 3;
 
@@ -1144,12 +1146,17 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 			//创建用于缓冲Shader Table的Heap，这里使用的是自定义上传堆
 			GRS_THROW_IF_FAILED(pID3D12Device4->CreateHeap(&stUploadHeapDesc, IID_PPV_ARGS(&pIHeapShaderTable)));
 
+			//注意分配尺寸对齐是32字节上对齐，否则纯DXR方式运行会报错
+			UINT64 nAlignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+			UINT64 nSizeAlignment = D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT;
+
 			// Ray gen shader table
 			{
 				UINT nNumShaderRecords = 1;
 				UINT nShaderRecordSize = nShaderIdentifierSize;
 
 				n64AllocSize = nNumShaderRecords * nShaderRecordSize;
+				n64AllocSize = GRS_UPPER(n64AllocSize, nSizeAlignment);
 
 				GRS_THROW_IF_FAILED(pID3D12Device4->CreatePlacedResource(
 					pIHeapShaderTable.Get()
@@ -1173,7 +1180,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 				pIRESRayGenShaderTable->Unmap(0, nullptr);
 			}
 
-			n64HeapOffset += GRS_UPPER(n64AllocSize, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT); //向上64k边界对齐准备下一个分配
+			n64HeapOffset += GRS_UPPER(n64AllocSize, nAlignment); //向上64k边界对齐准备下一个分配
 			GRS_THROW_IF_FALSE( n64HeapOffset < n64HeapSize );
 
 			// Miss shader table
@@ -1181,6 +1188,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 				UINT nNumShaderRecords = 1;
 				UINT nShaderRecordSize = nShaderIdentifierSize;
 				n64AllocSize = nNumShaderRecords * nShaderRecordSize;
+				n64AllocSize = GRS_UPPER(n64AllocSize, nSizeAlignment);
 
 				GRS_THROW_IF_FAILED(pID3D12Device4->CreatePlacedResource(
 					pIHeapShaderTable.Get()
@@ -1205,7 +1213,8 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 				pIRESMissShaderTable->Unmap(0, nullptr);
 			}
 
-			n64HeapOffset += GRS_UPPER(n64AllocSize, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT); //向上64k边界对齐准备下一个分配
+			//D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT
+			n64HeapOffset += GRS_UPPER(n64AllocSize, nAlignment); //向上64k边界对齐准备下一个分配
 			GRS_THROW_IF_FALSE(n64HeapOffset < n64HeapSize);
 
 			// Hit group shader table
@@ -1214,6 +1223,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 				UINT nShaderRecordSize = nShaderIdentifierSize + sizeof(stCBModule);
 
 				n64AllocSize = nNumShaderRecords * nShaderRecordSize;
+				n64AllocSize = GRS_UPPER(n64AllocSize, nSizeAlignment);
 
 				GRS_THROW_IF_FAILED(pID3D12Device4->CreatePlacedResource(
 					pIHeapShaderTable.Get()
@@ -1338,8 +1348,8 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 						//pICMDList->ClearRenderTargetView(stRTVHandle, c_faClearColor, 0, nullptr);
 						//---------------------------------------------------------------------------------------------
 						//开始渲染
-						D3D12_DISPATCH_RAYS_DESC stDispatchRayDesc					= {};
-						stDispatchRayDesc.HitGroupTable.StartAddress				= pIRESHitGroupShaderTable->GetGPUVirtualAddress();
+						D3D12_DISPATCH_RAYS_DESC stDispatchRayDesc				= {};
+						stDispatchRayDesc.HitGroupTable.StartAddress					= pIRESHitGroupShaderTable->GetGPUVirtualAddress();
 						stDispatchRayDesc.HitGroupTable.SizeInBytes					= pIRESHitGroupShaderTable->GetDesc().Width;
 						stDispatchRayDesc.HitGroupTable.StrideInBytes				= stDispatchRayDesc.HitGroupTable.SizeInBytes;
 

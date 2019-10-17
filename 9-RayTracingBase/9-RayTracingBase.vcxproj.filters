@@ -26,9 +26,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="..\Commons\GRSCOMException.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -46,5 +43,8 @@
     <FxCompile Include="Shader\Raytracing.hlsl">
       <Filter>Shader</Filter>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
