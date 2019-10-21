@@ -1,6 +1,11 @@
 #pragma once
 #include <wincodec.h>   //for WIC
 
+struct WICTranslate
+{
+	GUID wic;
+	DXGI_FORMAT format;
+};
 static WICTranslate g_WICFormats[] =
 {//WIC格式与DXGI像素格式的对应表，该表中的格式为被支持的格式
 	{ GUID_WICPixelFormat128bppRGBAFloat,       DXGI_FORMAT_R32G32B32A32_FLOAT },
