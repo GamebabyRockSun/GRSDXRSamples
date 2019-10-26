@@ -130,9 +130,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\Commons\DDSTextureLoader12.cpp" />
     <ClCompile Include="10-DXRTextureAndNormalMap.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Commons\dds.h" />
+    <ClInclude Include="..\Commons\DDSTextureLoader12.h" />
     <ClInclude Include="Shader\HlslCompat.h" />
     <ClInclude Include="Shader\RayTracingHlslCompat.h" />
   </ItemGroup>
@@ -146,6 +149,10 @@
       <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)CompiledShaders\%(Filename).hlsl.h</HeaderFileOutput>
       <VariableName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">g_p%(Filename)</VariableName>
       <VariableName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">g_p%(Filename)</VariableName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Library</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.3</ShaderModel>
     </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

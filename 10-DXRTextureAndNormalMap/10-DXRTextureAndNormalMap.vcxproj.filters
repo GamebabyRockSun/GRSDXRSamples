@@ -21,6 +21,9 @@
     <ClCompile Include="10-DXRTextureAndNormalMap.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\Commons\DDSTextureLoader12.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Shader\HlslCompat.h">
@@ -28,6 +31,12 @@
     </ClInclude>
     <ClInclude Include="Shader\RayTracingHlslCompat.h">
       <Filter>Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Commons\dds.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Commons\DDSTextureLoader12.h">
+      <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

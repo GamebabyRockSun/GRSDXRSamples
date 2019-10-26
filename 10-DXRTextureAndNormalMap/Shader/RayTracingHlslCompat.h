@@ -23,6 +23,7 @@ typedef UINT16 GRS_TYPE_INDEX;
 
 struct ST_SCENE_CONSANTBUFFER
 {
+	XMMATRIX m_mxWorld;
     XMMATRIX m_mxP2W;
     XMVECTOR m_vCameraPos;
     XMVECTOR m_vLightPos;

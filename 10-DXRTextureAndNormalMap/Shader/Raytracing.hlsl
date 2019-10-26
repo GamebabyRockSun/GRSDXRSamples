@@ -73,14 +73,6 @@ float3 HitWorldPosition()
     return WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 }
 
-// Retrieve attribute at a hit m_vNor interpolated from vertex attributes using the hit's barycentrics.
-float3 HitAttribute(float3 vertexAttribute[3], BuiltInTriangleIntersectionAttributes attr)
-{
-    return vertexAttribute[0] +
-        attr.barycentrics.x * (vertexAttribute[1] - vertexAttribute[0]) +
-        attr.barycentrics.y * (vertexAttribute[2] - vertexAttribute[0]);
-}
-
 // Generate a ray in world space for a camera pixel corresponding to an index from the dispatched 2D grid.
 inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 direction)
 {
@@ -94,8 +86,9 @@ inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 directi
     float4 world = mul(float4(screenPos, 0, 1), g_stSceneCB.m_mxP2W);
 
     world.xyz /= world.w;
-    origin = g_stSceneCB.m_vCameraPos.xyz;
-    direction = normalize(world.xyz - origin);
+
+    origin = float4(g_stSceneCB.m_vCameraPos.xyz,1.0f).xyz;
+	direction = normalize(world.xyz - origin);
 }
 
 // Diffuse lighting calculation.
@@ -148,28 +141,21 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
     // Load up 3 16 bit indices for the triangle.
     const uint3 indices = Load3x16BitIndices(baseIndex);
 
-    // Retrieve corresponding vertex normals for the triangle vertices.
-    float3 vertexNormals[3] = { 
-        g_Vertices[indices[0]].m_vNor, 
-        g_Vertices[indices[1]].m_vNor, 
-        g_Vertices[indices[2]].m_vNor 
-    };
-
-    // Compute the triangle's m_vNor.
-    // This is redundant and done for illustration purposes 
-    // as all the per-vertex normals are the same and match triangle's m_vNor in this sample. 
-    float3 triangleNormal = HitAttribute(vertexNormals, attr);
-
-    float4 diffuseColor = CalculateDiffuseLighting(hitPosition, triangleNormal);
-    float4 color = g_stSceneCB.m_vLightAmbientColor + diffuseColor;
-
 	float2 txCod = g_Vertices[indices[0]].m_vTex +
 		attr.barycentrics.x * (g_Vertices[indices[1]].m_vTex - g_Vertices[indices[0]].m_vTex) +
 		attr.barycentrics.y * (g_Vertices[indices[2]].m_vTex - g_Vertices[indices[0]].m_vTex);
 
+	//直接从Normal Map中读取法线
+    float3 triangleNormal = g_normalmap.SampleLevel(g_sampler, txCod.xy, 0).rgb;
+	triangleNormal = -1.0f * (2.0f * triangleNormal - 1.0f);
+	triangleNormal = normalize(triangleNormal);
+
+    float4 diffuseColor = CalculateDiffuseLighting(hitPosition, triangleNormal);
+    float4 color = g_stSceneCB.m_vLightAmbientColor + diffuseColor;
+
 	float4 txColor = g_texture.SampleLevel(g_sampler, txCod.xy,0);
 
-	payload.color = txColor * color;
+	payload.color = txColor * diffuseColor + g_stSceneCB.m_vLightAmbientColor;
 }
 
 [shader("miss")]

@@ -20,6 +20,7 @@
 #include "..\Commons\GRSWICHelper.cpp"
 #include "..\Commons\GRSMem.h"
 #include "..\Commons\GRSCOMException.h"
+#include "..\Commons\DDSTextureLoader12.h"
 #include "Shader\RayTracingHlslCompat.h" //shader 和 C++代码中使用相同的头文件定义常量结构体 以及顶点结构体等
 
 #include "../RayTracingFallback/Libraries/D3D12RaytracingFallback/Include/d3dx12.h"
@@ -148,9 +149,9 @@ inline void GRS_SetDXGIDebugNameIndexed(IDXGIObject*, LPCWSTR, UINT)
 //------------------------------------------------------------------------------------------------------------
 
 //全局光源信息变量
-XMFLOAT4 g_v4LightPosition = XMFLOAT4(0.0f, 10.8f, -3.0f, 0.0f);
-XMFLOAT4 g_v4LightAmbientColor = XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f);
-XMFLOAT4 g_v4LightDiffuseColor = XMFLOAT4(0.5f, 0.4f, 0.2f, 1.0f);
+XMFLOAT4 g_v4LightPosition = XMFLOAT4(0.0f, 1.8f, -3.0f, 0.0f);
+XMFLOAT4 g_v4LightAmbientColor = XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f);
+XMFLOAT4 g_v4LightDiffuseColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
 //全局摄像机信息变量
 XMVECTOR g_vEye = { 0.0f,0.0f,-5.0f,0.0f };
@@ -229,7 +230,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 	ComPtr<ID3D12Resource>						pIVBBufs;			//ST_GRS_VERTEX Buffer
 	ComPtr<ID3D12Resource>						pIIBBufs;			//GRS_TYPE_INDEX Buffer
 	ComPtr<ID3D12Resource>						pITexture;			//Earth Texture
+	ComPtr<ID3D12Resource>						pITextureUpload;	//Earth Texture Upload
 	ComPtr<ID3D12Resource>						pINormalMap;		//Normal Map Texture
+	ComPtr<ID3D12Resource>						pINormalMapUpload;	//Normal Map Texture Upload
 	ComPtr<ID3D12DescriptorHeap>				pISampleHeap;		//Sample Heap
 
 	ComPtr<ID3D12Resource>						pICBFrameConstant;
@@ -260,10 +263,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 
 	BOOL										bISDXRSupport = FALSE;
 
-	ST_GRS_VERTEX* pstVertices = nullptr;
-	GRS_TYPE_INDEX* pnIndices = nullptr;
+	ST_GRS_VERTEX*								pstVertices = nullptr;
+	GRS_TYPE_INDEX*								pnIndices = nullptr;
 	UINT										nVertexCnt = 0;
 	UINT										nIndexCnt = 0;
+	D3D12_RAYTRACING_INSTANCE_DESC*				pstInstanceDesc = nullptr;
 
 	GRS_USEPRINTF();
 	try
@@ -278,7 +282,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 			{
 				GRS_THROW_IF_FAILED(HRESULT_FROM_WIN32(GetLastError()));
 			}
-			
+
 			WCHAR* lastSlash = _tcsrchr(pszAppPath, _T('\\'));
 			if (lastSlash)
 			{
@@ -359,7 +363,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 		}
 
 		//=====================================================================================================================
-		// 检测适配器是否支持兼容级别的光追渲染，不支持，就彻底无法了，只能退出
+		// 从本例开始，光追渲染部分的示例将不再使用Fallback方式，如果硬件不支持DXR，那么就直接退出
 		{
 			// 创建一个设备试试看DX12行不行
 			HRESULT hr2 = D3D12CreateDevice(pIDXGIAdapter1.Get()
@@ -571,15 +575,20 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 
 		//创建根签名 注意DXR中有两个根签名，一个是全局（Global）根签名另一个是本地（Local）根签名
 		{
-			CD3DX12_DESCRIPTOR_RANGE stRanges[2] = {}; // Perfomance TIP: Order from most frequent to least frequent.
+			CD3DX12_DESCRIPTOR_RANGE stRanges[4] = {}; // Perfomance TIP: Order from most frequent to least frequent.
 			stRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);  // 1 output texture
 			stRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1);  // 2 static index and vertex buffers.
+			stRanges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 3);  // 2 Texture and Normal Texture.
+			stRanges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0);
 
-			CD3DX12_ROOT_PARAMETER stGlobalRootParams[4];
+			CD3DX12_ROOT_PARAMETER stGlobalRootParams[6];
 			stGlobalRootParams[0].InitAsDescriptorTable(1, &stRanges[0]);
 			stGlobalRootParams[1].InitAsShaderResourceView(0);
 			stGlobalRootParams[2].InitAsConstantBufferView(0);
 			stGlobalRootParams[3].InitAsDescriptorTable(1, &stRanges[1]);
+			stGlobalRootParams[4].InitAsDescriptorTable(1, &stRanges[2]);
+			stGlobalRootParams[5].InitAsDescriptorTable(1, &stRanges[3]);
+
 			CD3DX12_ROOT_SIGNATURE_DESC stGlobalRootSignatureDesc(ARRAYSIZE(stGlobalRootParams), stGlobalRootParams);
 
 			CD3DX12_ROOT_PARAMETER stLocalRootParams[1] = {};
@@ -717,252 +726,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 				objRaytracingPipeline
 				, IID_PPV_ARGS(&pIDXRPSO)));
 
-		}
-		//=====================================================================================================================
-
-		//加载模型数据
-		{
-			USES_CONVERSION;
-
-			CHAR pszMeshFileName[MAX_PATH] = {};
-			StringCchPrintfA(pszMeshFileName, MAX_PATH, "%s\\Mesh\\sphere.txt", T2A(pszAppPath));
-
-			LoadMeshVertex(pszMeshFileName, nVertexCnt, pstVertices, pnIndices);
-			nIndexCnt = nVertexCnt;
-
-			//*******************************************************************************************
-			//nIndexCnt = nVertexCnt = 3;
-
-			//pstVertices = (ST_GRS_VERTEX*)GRS_CALLOC(nVertexCnt * sizeof(ST_GRS_VERTEX));
-			//pnIndices = (GRS_TYPE_INDEX*)GRS_CALLOC(nIndexCnt * sizeof(GRS_TYPE_INDEX));
-
-			//pnIndices[0] = 0;
-			//pnIndices[1] = 1;
-			//pnIndices[2] = 2;
-
-			//float depthValue = 1.0;
-			//float offset = 0.7f;
-
-			//pstVertices[0].m_vPos = XMFLOAT4(0, -offset, depthValue, 1.0f);
-			//pstVertices[1].m_vPos = XMFLOAT4(-offset, offset, depthValue, 1.0f);
-			//pstVertices[2].m_vPos = XMFLOAT4(offset, offset, depthValue, 1.0f);
-
-			//pstVertices[0].m_vNor = XMFLOAT3(-1.0f, 0.0f, -1.0f);
-			//pstVertices[1].m_vNor = XMFLOAT3(0.0f, -1.0f, -1.0f);
-			//pstVertices[2].m_vNor = XMFLOAT3(0.0f, 0.0f, -1.0f);
-
-			//pstVertices[0].m_vTex = XMFLOAT2(1.0f, 1.0f);
-			//pstVertices[1].m_vTex = XMFLOAT2(1.0f, 1.0f);
-			//pstVertices[2].m_vTex = XMFLOAT2(1.0f, 1.0f);
-			//*******************************************************************************************
-
-			//创建 ST_GRS_VERTEX Buffer 仅使用Upload隐式堆
-			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
-				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD)
-				, D3D12_HEAP_FLAG_NONE
-				, &CD3DX12_RESOURCE_DESC::Buffer(nVertexCnt * sizeof(ST_GRS_VERTEX))
-				, D3D12_RESOURCE_STATE_GENERIC_READ
-				, nullptr
-				, IID_PPV_ARGS(&pIVBBufs)));
-			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIVBBufs);
-
-			//使用map-memcpy-unmap大法将数据传至顶点缓冲对象
-			UINT8* pVertexDataBegin = nullptr;
-			CD3DX12_RANGE stReadRange(0, 0);		// We do not intend to read from this resource on the CPU.
-
-			GRS_THROW_IF_FAILED(pIVBBufs->Map(0
-				, &stReadRange
-				, reinterpret_cast<void**>(&pVertexDataBegin)));
-			memcpy(pVertexDataBegin, pstVertices, nVertexCnt * sizeof(ST_GRS_VERTEX));
-			pIVBBufs->Unmap(0, nullptr);
-
-			//创建 GRS_TYPE_INDEX Buffer 仅使用Upload隐式堆
-			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
-				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD)
-				, D3D12_HEAP_FLAG_NONE
-				, &CD3DX12_RESOURCE_DESC::Buffer(nIndexCnt * sizeof(GRS_TYPE_INDEX))
-				, D3D12_RESOURCE_STATE_GENERIC_READ
-				, nullptr
-				, IID_PPV_ARGS(&pIIBBufs)));
-			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIIBBufs);
-
-			UINT8* pIndexDataBegin = nullptr;
-			GRS_THROW_IF_FAILED(pIIBBufs->Map(0
-				, &stReadRange
-				, reinterpret_cast<void**>(&pIndexDataBegin)));
-			memcpy(pIndexDataBegin, pnIndices, nIndexCnt * sizeof(GRS_TYPE_INDEX));
-			pIIBBufs->Unmap(0, nullptr);
-
-			GRS_SAFE_FREE(pstVertices);
-			GRS_SAFE_FREE(pnIndices);
-
-			// GRS_TYPE_INDEX SRV
-			D3D12_SHADER_RESOURCE_VIEW_DESC stSRVDesc = {};
-			stSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-			stSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			stSRVDesc.Format = DXGI_FORMAT_R32_TYPELESS;
-			stSRVDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
-			stSRVDesc.Buffer.NumElements = (nIndexCnt * sizeof(GRS_TYPE_INDEX)) / 4;// GRS_UPPER_DIV((nIndexCnt * sizeof(GRS_TYPE_INDEX)), 4);
-			stSRVDesc.Buffer.StructureByteStride = 0;
-
-			pID3D12Device4->CreateShaderResourceView(pIIBBufs.Get()
-				, &stSRVDesc
-				, CD3DX12_CPU_DESCRIPTOR_HANDLE(pIDXRUAVHeap->GetCPUDescriptorHandleForHeapStart()
-					, c_nDSHIndxIBView
-					, nSRVDescriptorSize));
-
-			// Vertex SRV
-			stSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
-			stSRVDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-			stSRVDesc.Buffer.NumElements = nVertexCnt;
-			stSRVDesc.Buffer.StructureByteStride = sizeof(ST_GRS_VERTEX);
-
-			pID3D12Device4->CreateShaderResourceView(pIVBBufs.Get()
-				, &stSRVDesc
-				, CD3DX12_CPU_DESCRIPTOR_HANDLE(pIDXRUAVHeap->GetCPUDescriptorHandleForHeapStart()
-					, c_nDSHIndxVBView
-					, nSRVDescriptorSize));
-
-		}
-
-		//---------------------------------------------------------------------------------------------------------------------
-		//创建模型的加速结构体
-		{
-			D3D12_RAYTRACING_GEOMETRY_DESC stModuleGeometryDesc = {};
-			stModuleGeometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-			stModuleGeometryDesc.Triangles.IndexBuffer = pIIBBufs->GetGPUVirtualAddress();
-			stModuleGeometryDesc.Triangles.IndexCount = static_cast<UINT>(pIIBBufs->GetDesc().Width) / sizeof(GRS_TYPE_INDEX);
-			stModuleGeometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R16_UINT;
-			stModuleGeometryDesc.Triangles.Transform3x4 = 0;
-			stModuleGeometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-			stModuleGeometryDesc.Triangles.VertexCount = static_cast<UINT>(pIVBBufs->GetDesc().Width) / sizeof(ST_GRS_VERTEX);
-			stModuleGeometryDesc.Triangles.VertexBuffer.StartAddress = pIVBBufs->GetGPUVirtualAddress();
-			stModuleGeometryDesc.Triangles.VertexBuffer.StrideInBytes = sizeof(ST_GRS_VERTEX);
-
-			// Mark the geometry as opaque. 
-			// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
-			// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
-			stModuleGeometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
-
-			// Get required sizes for an acceleration structure.
-			D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS emBuildFlags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
-
-			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC stBottomLevelBuildDesc = {};
-			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& stBottomLevelInputs = stBottomLevelBuildDesc.Inputs;
-			stBottomLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-			stBottomLevelInputs.Flags = emBuildFlags;
-			stBottomLevelInputs.NumDescs = 1;
-			stBottomLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-			stBottomLevelInputs.pGeometryDescs = &stModuleGeometryDesc;
-
-			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC stTopLevelBuildDesc = {};
-			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& stTopLevelInputs = stTopLevelBuildDesc.Inputs;
-			stTopLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-			stTopLevelInputs.Flags = emBuildFlags;
-			stTopLevelInputs.NumDescs = 1;
-			stTopLevelInputs.pGeometryDescs = nullptr;
-			stTopLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
-
-			D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO stTopLevelPrebuildInfo = {};
-			pID3D12DXRDevice->GetRaytracingAccelerationStructurePrebuildInfo(&stTopLevelInputs
-				, &stTopLevelPrebuildInfo);
-
-			GRS_THROW_IF_FALSE(stTopLevelPrebuildInfo.ResultDataMaxSizeInBytes > 0);
-
-			D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO stBottomLevelPrebuildInfo = {};
-			pID3D12DXRDevice->GetRaytracingAccelerationStructurePrebuildInfo(&stBottomLevelInputs
-				, &stBottomLevelPrebuildInfo);
-			
-			GRS_THROW_IF_FALSE(stBottomLevelPrebuildInfo.ResultDataMaxSizeInBytes > 0);
-
-			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
-				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-				D3D12_HEAP_FLAG_NONE,
-				&CD3DX12_RESOURCE_DESC::Buffer(
-					max(stTopLevelPrebuildInfo.ScratchDataSizeInBytes
-						, stBottomLevelPrebuildInfo.ScratchDataSizeInBytes)
-					, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-				nullptr,
-				IID_PPV_ARGS(&pIUAVScratchResource)));
-			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIUAVScratchResource);
-			
-			D3D12_RESOURCE_STATES emInitialResourceState;
-			emInitialResourceState = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
-				
-			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
-				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-				D3D12_HEAP_FLAG_NONE,
-				&CD3DX12_RESOURCE_DESC::Buffer(stBottomLevelPrebuildInfo.ResultDataMaxSizeInBytes
-					, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
-				emInitialResourceState,
-				nullptr,
-				IID_PPV_ARGS(&pIUAVBottomLevelAccelerationStructure)));
-			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIUAVBottomLevelAccelerationStructure);
-
-			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
-				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-				D3D12_HEAP_FLAG_NONE,
-				&CD3DX12_RESOURCE_DESC::Buffer(stTopLevelPrebuildInfo.ResultDataMaxSizeInBytes
-					, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
-				emInitialResourceState,
-				nullptr,
-				IID_PPV_ARGS(&pIUAVTopLevelAccelerationStructure)));
-			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIUAVTopLevelAccelerationStructure);
-
-			
-			D3D12_RAYTRACING_INSTANCE_DESC stInstanceDesc = {};
-			stInstanceDesc.Transform[0][0] 
-				= stInstanceDesc.Transform[1][1] 
-				= stInstanceDesc.Transform[2][2] = 1;
-			stInstanceDesc.InstanceMask = 1;
-			stInstanceDesc.AccelerationStructure 
-				= pIUAVBottomLevelAccelerationStructure->GetGPUVirtualAddress();
-
-			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
-				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-				D3D12_HEAP_FLAG_NONE,
-				&CD3DX12_RESOURCE_DESC::Buffer(sizeof(stInstanceDesc)),
-				D3D12_RESOURCE_STATE_GENERIC_READ,
-				nullptr,
-				IID_PPV_ARGS(&pIUploadBufInstanceDescs)));
-			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIUploadBufInstanceDescs);
-
-			void* pMappedData;
-			pIUploadBufInstanceDescs->Map(0, nullptr, &pMappedData);
-			memcpy(pMappedData, &stInstanceDesc, sizeof(stInstanceDesc));
-			pIUploadBufInstanceDescs->Unmap(0, nullptr);
-			
-			// Bottom Level Acceleration Structure desc
-			stBottomLevelBuildDesc.ScratchAccelerationStructureData = pIUAVScratchResource->GetGPUVirtualAddress();
-			stBottomLevelBuildDesc.DestAccelerationStructureData = pIUAVBottomLevelAccelerationStructure->GetGPUVirtualAddress();
-			
-			// Top Level Acceleration Structure desc
-			stTopLevelBuildDesc.DestAccelerationStructureData = pIUAVTopLevelAccelerationStructure->GetGPUVirtualAddress();
-			stTopLevelBuildDesc.ScratchAccelerationStructureData = pIUAVScratchResource->GetGPUVirtualAddress();
-			stTopLevelBuildDesc.Inputs.InstanceDescs = pIUploadBufInstanceDescs->GetGPUVirtualAddress();
-			
-
-			// Build acceleration structure.
-			pIDXRCmdList->BuildRaytracingAccelerationStructure(&stBottomLevelBuildDesc, 0, nullptr);
-			pICMDList->ResourceBarrier(1
-				, &CD3DX12_RESOURCE_BARRIER::UAV(pIUAVBottomLevelAccelerationStructure.Get()));
-			pIDXRCmdList->BuildRaytracingAccelerationStructure(&stTopLevelBuildDesc, 0, nullptr);
-			
-			// Kick off acceleration structure construction.
-			GRS_THROW_IF_FAILED(pICMDList->Close());
-			ID3D12CommandList* pIarCMDList[] = { pICMDList.Get() };
-			pICMDQueue->ExecuteCommandLists(ARRAYSIZE(pIarCMDList), pIarCMDList);
-
-			const UINT64 n64CurFenceValue = n64FenceValue;
-			GRS_THROW_IF_FAILED(pICMDQueue->Signal(pIFence1.Get(), n64CurFenceValue));
-			n64FenceValue++;
-
-			if (pIFence1->GetCompletedValue() < n64CurFenceValue)
-			{
-				GRS_THROW_IF_FAILED(pIFence1->SetEventOnCompletion(n64CurFenceValue, hEventFence1));
-				WaitForSingleObject(hEventFence1, INFINITE);
-			}
 		}
 
 		//创建Shader Table
@@ -1114,23 +877,412 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 		//=====================================================================================================================
 
 		//创建常量缓冲
+		{ {
+				size_t szCBBuf = GRS_UPPER(sizeof(ST_SCENE_CONSANTBUFFER)
+					, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+				szCBBuf *= c_nFrameBackBufCount;
+
+				GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
+					&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+					D3D12_HEAP_FLAG_NONE,
+					&CD3DX12_RESOURCE_DESC::Buffer(szCBBuf),
+					D3D12_RESOURCE_STATE_GENERIC_READ,
+					nullptr,
+					IID_PPV_ARGS(&pICBFrameConstant)));
+
+				CD3DX12_RANGE readRange(0, 0);
+				GRS_THROW_IF_FAILED(pICBFrameConstant->Map(0
+					, nullptr
+					, reinterpret_cast<void**>(&pstCBScene)));
+			}}
+
+		//加载模型数据
 		{
-			size_t szCBBuf = GRS_UPPER(sizeof(ST_SCENE_CONSANTBUFFER)
-				, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-			szCBBuf *= c_nFrameBackBufCount;
+			USES_CONVERSION;
+
+			CHAR pszMeshFileName[MAX_PATH] = {};
+			StringCchPrintfA(pszMeshFileName, MAX_PATH, "%s\\Mesh\\sphere.txt", T2A(pszAppPath));
+
+			LoadMeshVertex(pszMeshFileName, nVertexCnt, pstVertices, pnIndices);
+			nIndexCnt = nVertexCnt;
+
+			//*******************************************************************************************
+			//nIndexCnt = nVertexCnt = 3;
+
+			//pstVertices = (ST_GRS_VERTEX*)GRS_CALLOC(nVertexCnt * sizeof(ST_GRS_VERTEX));
+			//pnIndices = (GRS_TYPE_INDEX*)GRS_CALLOC(nIndexCnt * sizeof(GRS_TYPE_INDEX));
+
+			//pnIndices[0] = 0;
+			//pnIndices[1] = 1;
+			//pnIndices[2] = 2;
+
+			//float depthValue = 1.0;
+			//float offset = 0.7f;
+
+			//pstVertices[0].m_vPos = XMFLOAT4(0, -offset, depthValue, 1.0f);
+			//pstVertices[1].m_vPos = XMFLOAT4(-offset, offset, depthValue, 1.0f);
+			//pstVertices[2].m_vPos = XMFLOAT4(offset, offset, depthValue, 1.0f);
+
+			//pstVertices[0].m_vNor = XMFLOAT3(-1.0f, 0.0f, -1.0f);
+			//pstVertices[1].m_vNor = XMFLOAT3(0.0f, -1.0f, -1.0f);
+			//pstVertices[2].m_vNor = XMFLOAT3(0.0f, 0.0f, -1.0f);
+
+			//pstVertices[0].m_vTex = XMFLOAT2(1.0f, 1.0f);
+			//pstVertices[1].m_vTex = XMFLOAT2(1.0f, 1.0f);
+			//pstVertices[2].m_vTex = XMFLOAT2(1.0f, 1.0f);
+			//*******************************************************************************************
+
+			//创建 ST_GRS_VERTEX Buffer 仅使用Upload隐式堆
+			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD)
+				, D3D12_HEAP_FLAG_NONE
+				, &CD3DX12_RESOURCE_DESC::Buffer(nVertexCnt * sizeof(ST_GRS_VERTEX))
+				, D3D12_RESOURCE_STATE_GENERIC_READ
+				, nullptr
+				, IID_PPV_ARGS(&pIVBBufs)));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIVBBufs);
+
+			//使用map-memcpy-unmap大法将数据传至顶点缓冲对象
+			UINT8* pVertexDataBegin = nullptr;
+			CD3DX12_RANGE stReadRange(0, 0);		// We do not intend to read from this resource on the CPU.
+
+			GRS_THROW_IF_FAILED(pIVBBufs->Map(0
+				, &stReadRange
+				, reinterpret_cast<void**>(&pVertexDataBegin)));
+			memcpy(pVertexDataBegin, pstVertices, nVertexCnt * sizeof(ST_GRS_VERTEX));
+			pIVBBufs->Unmap(0, nullptr);
+
+			//创建 GRS_TYPE_INDEX Buffer 仅使用Upload隐式堆
+			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD)
+				, D3D12_HEAP_FLAG_NONE
+				, &CD3DX12_RESOURCE_DESC::Buffer(nIndexCnt * sizeof(GRS_TYPE_INDEX))
+				, D3D12_RESOURCE_STATE_GENERIC_READ
+				, nullptr
+				, IID_PPV_ARGS(&pIIBBufs)));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIIBBufs);
+
+			UINT8* pIndexDataBegin = nullptr;
+			GRS_THROW_IF_FAILED(pIIBBufs->Map(0
+				, &stReadRange
+				, reinterpret_cast<void**>(&pIndexDataBegin)));
+			memcpy(pIndexDataBegin, pnIndices, nIndexCnt * sizeof(GRS_TYPE_INDEX));
+			pIIBBufs->Unmap(0, nullptr);
+
+			GRS_SAFE_FREE(pstVertices);
+			GRS_SAFE_FREE(pnIndices);
+
+			// GRS_TYPE_INDEX SRV
+			D3D12_SHADER_RESOURCE_VIEW_DESC stSRVDesc = {};
+			stSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+			stSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			stSRVDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+			stSRVDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+			stSRVDesc.Buffer.NumElements = (nIndexCnt * sizeof(GRS_TYPE_INDEX)) / 4;// GRS_UPPER_DIV((nIndexCnt * sizeof(GRS_TYPE_INDEX)), 4);
+			stSRVDesc.Buffer.StructureByteStride = 0;
+
+			pID3D12Device4->CreateShaderResourceView(pIIBBufs.Get()
+				, &stSRVDesc
+				, CD3DX12_CPU_DESCRIPTOR_HANDLE(pIDXRUAVHeap->GetCPUDescriptorHandleForHeapStart()
+					, c_nDSHIndxIBView
+					, nSRVDescriptorSize));
+
+			// Vertex SRV
+			stSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+			stSRVDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+			stSRVDesc.Buffer.NumElements = nVertexCnt;
+			stSRVDesc.Buffer.StructureByteStride = sizeof(ST_GRS_VERTEX);
+
+			pID3D12Device4->CreateShaderResourceView(pIVBBufs.Get()
+				, &stSRVDesc
+				, CD3DX12_CPU_DESCRIPTOR_HANDLE(pIDXRUAVHeap->GetCPUDescriptorHandleForHeapStart()
+					, c_nDSHIndxVBView
+					, nSRVDescriptorSize));
+
+		}
+		//加载纹理 和 法线纹理
+		{
+			TCHAR pszTexture[MAX_PATH] = {};
+			StringCchPrintf(pszTexture, MAX_PATH, _T("%sEarthResource\\Earth4kTexture_4K.dds"), pszAppPath);
+
+			std::unique_ptr<uint8_t[]>			pbDDSData;
+			std::vector<D3D12_SUBRESOURCE_DATA> stArSubResources;
+			DDS_ALPHA_MODE						emAlphaMode = DDS_ALPHA_MODE_UNKNOWN;
+			bool								bIsCube = false;
+
+			GRS_THROW_IF_FAILED(LoadDDSTextureFromFile(
+				pID3D12Device4.Get()
+				, pszTexture
+				, pITexture.GetAddressOf()
+				, pbDDSData
+				, stArSubResources
+				, SIZE_MAX
+				, &emAlphaMode
+				, &bIsCube));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pITexture);
+
+			UINT64 n64szUpSphere = GetRequiredIntermediateSize(
+				pITexture.Get()
+				, 0
+				, static_cast<UINT>(stArSubResources.size()));
+
+			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD)
+				, D3D12_HEAP_FLAG_NONE
+				, &CD3DX12_RESOURCE_DESC::Buffer(n64szUpSphere)
+				, D3D12_RESOURCE_STATE_GENERIC_READ
+				, nullptr
+				, IID_PPV_ARGS(&pITextureUpload)));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pITextureUpload);
+
+			//执行两个Copy动作将纹理上传到默认堆中
+			UpdateSubresources(pICMDList.Get()
+				, pITexture.Get()
+				, pITextureUpload.Get()
+				, 0
+				, 0
+				, static_cast<UINT>(stArSubResources.size())
+				, stArSubResources.data());
+
+			//同步
+			pICMDList->ResourceBarrier(1
+				, &CD3DX12_RESOURCE_BARRIER::Transition(pITexture.Get()
+					, D3D12_RESOURCE_STATE_COPY_DEST
+					, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+			//加载法线纹理
+			StringCchPrintf(pszTexture, MAX_PATH, _T("%sEarthResource\\Earth4kNormal_4K.dds"), pszAppPath);
+
+			pbDDSData.reset();
+			stArSubResources.empty();
+			emAlphaMode = DDS_ALPHA_MODE_UNKNOWN;
+			bIsCube = false;
+
+			GRS_THROW_IF_FAILED(LoadDDSTextureFromFile(
+				pID3D12Device4.Get()
+				, pszTexture
+				, pINormalMap.GetAddressOf()
+				, pbDDSData
+				, stArSubResources
+				, SIZE_MAX
+				, &emAlphaMode
+				, &bIsCube));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pINormalMap);
+
+			n64szUpSphere = GetRequiredIntermediateSize(
+				pINormalMap.Get()
+				, 0
+				, static_cast<UINT>(stArSubResources.size()));
+
+			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD)
+				, D3D12_HEAP_FLAG_NONE
+				, &CD3DX12_RESOURCE_DESC::Buffer(n64szUpSphere)
+				, D3D12_RESOURCE_STATE_GENERIC_READ
+				, nullptr
+				, IID_PPV_ARGS(&pINormalMapUpload)));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pINormalMapUpload);
+
+			//执行两个Copy动作将纹理上传到默认堆中
+			UpdateSubresources(pICMDList.Get()
+				, pINormalMap.Get()
+				, pINormalMapUpload.Get()
+				, 0
+				, 0
+				, static_cast<UINT>(stArSubResources.size())
+				, stArSubResources.data());
+
+			//同步
+			pICMDList->ResourceBarrier(1
+				, &CD3DX12_RESOURCE_BARRIER::Transition(pINormalMap.Get()
+					, D3D12_RESOURCE_STATE_COPY_DEST
+					, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+
+
+			//创建描述符
+			D3D12_RESOURCE_DESC stTXDesc = pITexture->GetDesc();
+			D3D12_SHADER_RESOURCE_VIEW_DESC stSRVDesc = {};
+			stSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+			stSRVDesc.Format = stTXDesc.Format;
+			stSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			stSRVDesc.Texture2D.MipLevels = 1;
+
+			CD3DX12_CPU_DESCRIPTOR_HANDLE stSrvHandleTexture(
+				pIDXRUAVHeap->GetCPUDescriptorHandleForHeapStart()
+				, c_nDSNIndxTexture
+				, nSRVDescriptorSize);
+
+			pID3D12Device4->CreateShaderResourceView(
+				pITexture.Get()
+				, &stSRVDesc
+				, stSrvHandleTexture);
+
+			//创建噪声纹理的描述符
+			stTXDesc = pINormalMap->GetDesc();
+			stSRVDesc.Format = stTXDesc.Format;
+			CD3DX12_CPU_DESCRIPTOR_HANDLE stSrvHandleNormalMap(
+				pIDXRUAVHeap->GetCPUDescriptorHandleForHeapStart()
+				, c_nDSNIndxNormal
+				, nSRVDescriptorSize);
+			pID3D12Device4->CreateShaderResourceView(
+				pINormalMap.Get()
+				, &stSRVDesc
+				, stSrvHandleNormalMap);
+
+
+			//创建采样器
+			D3D12_SAMPLER_DESC stSamplerDesc = {};
+			stSamplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+			stSamplerDesc.MinLOD = 0;
+			stSamplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+			stSamplerDesc.MipLODBias = 0.0f;
+			stSamplerDesc.MaxAnisotropy = 1;
+			stSamplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+			stSamplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+			stSamplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+			stSamplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+
+			pID3D12Device4->CreateSampler(&stSamplerDesc
+				, pISampleHeap->GetCPUDescriptorHandleForHeapStart());
+
+		}
+
+		//创建模型的加速结构体
+		{
+			D3D12_RAYTRACING_GEOMETRY_DESC stModuleGeometryDesc = {};
+			stModuleGeometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+			stModuleGeometryDesc.Triangles.IndexBuffer = pIIBBufs->GetGPUVirtualAddress();
+			stModuleGeometryDesc.Triangles.IndexCount = static_cast<UINT>(pIIBBufs->GetDesc().Width) / sizeof(GRS_TYPE_INDEX);
+			stModuleGeometryDesc.Triangles.IndexFormat = DXGI_FORMAT_R16_UINT;
+			stModuleGeometryDesc.Triangles.Transform3x4 = 0;
+			stModuleGeometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+			stModuleGeometryDesc.Triangles.VertexCount = static_cast<UINT>(pIVBBufs->GetDesc().Width) / sizeof(ST_GRS_VERTEX);
+			stModuleGeometryDesc.Triangles.VertexBuffer.StartAddress = pIVBBufs->GetGPUVirtualAddress();
+			stModuleGeometryDesc.Triangles.VertexBuffer.StrideInBytes = sizeof(ST_GRS_VERTEX);
+
+			// Mark the geometry as opaque. 
+			// PERFORMANCE TIP: mark geometry as opaque whenever applicable as it can enable important ray processing optimizations.
+			// Note: When rays encounter opaque geometry an any hit shader will not be executed whether it is present or not.
+			stModuleGeometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+
+			// Get required sizes for an acceleration structure.
+			D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS emBuildFlags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+
+			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC stBottomLevelBuildDesc = {};
+			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& stBottomLevelInputs = stBottomLevelBuildDesc.Inputs;
+			stBottomLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+			stBottomLevelInputs.Flags = emBuildFlags;
+			stBottomLevelInputs.NumDescs = 1;
+			stBottomLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+			stBottomLevelInputs.pGeometryDescs = &stModuleGeometryDesc;
+
+			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC stTopLevelBuildDesc = {};
+			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& stTopLevelInputs = stTopLevelBuildDesc.Inputs;
+			stTopLevelInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+			stTopLevelInputs.Flags = emBuildFlags;
+			stTopLevelInputs.NumDescs = 1;
+			stTopLevelInputs.pGeometryDescs = nullptr;
+			stTopLevelInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+
+			D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO stTopLevelPrebuildInfo = {};
+			pID3D12DXRDevice->GetRaytracingAccelerationStructurePrebuildInfo(&stTopLevelInputs
+				, &stTopLevelPrebuildInfo);
+
+			GRS_THROW_IF_FALSE(stTopLevelPrebuildInfo.ResultDataMaxSizeInBytes > 0);
+
+			D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO stBottomLevelPrebuildInfo = {};
+			pID3D12DXRDevice->GetRaytracingAccelerationStructurePrebuildInfo(&stBottomLevelInputs
+				, &stBottomLevelPrebuildInfo);
+
+			GRS_THROW_IF_FALSE(stBottomLevelPrebuildInfo.ResultDataMaxSizeInBytes > 0);
+
+			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+				D3D12_HEAP_FLAG_NONE,
+				&CD3DX12_RESOURCE_DESC::Buffer(
+					max(stTopLevelPrebuildInfo.ScratchDataSizeInBytes
+						, stBottomLevelPrebuildInfo.ScratchDataSizeInBytes)
+					, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+				nullptr,
+				IID_PPV_ARGS(&pIUAVScratchResource)));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIUAVScratchResource);
+
+			D3D12_RESOURCE_STATES emInitialResourceState;
+			emInitialResourceState = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
+
+			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+				D3D12_HEAP_FLAG_NONE,
+				&CD3DX12_RESOURCE_DESC::Buffer(stBottomLevelPrebuildInfo.ResultDataMaxSizeInBytes
+					, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
+				emInitialResourceState,
+				nullptr,
+				IID_PPV_ARGS(&pIUAVBottomLevelAccelerationStructure)));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIUAVBottomLevelAccelerationStructure);
+
+			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+				D3D12_HEAP_FLAG_NONE,
+				&CD3DX12_RESOURCE_DESC::Buffer(stTopLevelPrebuildInfo.ResultDataMaxSizeInBytes
+					, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
+				emInitialResourceState,
+				nullptr,
+				IID_PPV_ARGS(&pIUAVTopLevelAccelerationStructure)));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIUAVTopLevelAccelerationStructure);
+
+
+			D3D12_RAYTRACING_INSTANCE_DESC stInstanceDesc = {};
+			stInstanceDesc.Transform[0][0]
+				= stInstanceDesc.Transform[1][1]
+				= stInstanceDesc.Transform[2][2] = 1;
+			stInstanceDesc.InstanceMask = 1;
+			stInstanceDesc.AccelerationStructure
+				= pIUAVBottomLevelAccelerationStructure->GetGPUVirtualAddress();
 
 			GRS_THROW_IF_FAILED(pID3D12Device4->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 				D3D12_HEAP_FLAG_NONE,
-				&CD3DX12_RESOURCE_DESC::Buffer(szCBBuf),
+				&CD3DX12_RESOURCE_DESC::Buffer(sizeof(stInstanceDesc)),
 				D3D12_RESOURCE_STATE_GENERIC_READ,
 				nullptr,
-				IID_PPV_ARGS(&pICBFrameConstant)));
+				IID_PPV_ARGS(&pIUploadBufInstanceDescs)));
+			GRS_SET_D3D12_DEBUGNAME_COMPTR(pIUploadBufInstanceDescs);
 
-			CD3DX12_RANGE readRange(0, 0);
-			GRS_THROW_IF_FAILED(pICBFrameConstant->Map(0
-				, nullptr
-				, reinterpret_cast<void**>(&pstCBScene)));
+			pIUploadBufInstanceDescs->Map(0, nullptr, (void**)&pstInstanceDesc);
+			memcpy(pstInstanceDesc, &stInstanceDesc, sizeof(stInstanceDesc));
+			pIUploadBufInstanceDescs->Unmap(0, nullptr);
+
+			// Bottom Level Acceleration Structure desc
+			stBottomLevelBuildDesc.ScratchAccelerationStructureData = pIUAVScratchResource->GetGPUVirtualAddress();
+			stBottomLevelBuildDesc.DestAccelerationStructureData = pIUAVBottomLevelAccelerationStructure->GetGPUVirtualAddress();
+
+			// Top Level Acceleration Structure desc
+			stTopLevelBuildDesc.DestAccelerationStructureData = pIUAVTopLevelAccelerationStructure->GetGPUVirtualAddress();
+			stTopLevelBuildDesc.ScratchAccelerationStructureData = pIUAVScratchResource->GetGPUVirtualAddress();
+			stTopLevelBuildDesc.Inputs.InstanceDescs = pIUploadBufInstanceDescs->GetGPUVirtualAddress();
+
+
+			// Build acceleration structure.
+			pIDXRCmdList->BuildRaytracingAccelerationStructure(&stBottomLevelBuildDesc, 0, nullptr);
+			pICMDList->ResourceBarrier(1
+				, &CD3DX12_RESOURCE_BARRIER::UAV(pIUAVBottomLevelAccelerationStructure.Get()));
+			pIDXRCmdList->BuildRaytracingAccelerationStructure(&stTopLevelBuildDesc, 0, nullptr);
+
+		}
+
+
+		//执行命令列表，完成资源上传显存
+		{
+			GRS_THROW_IF_FAILED(pICMDList->Close());
+			ID3D12CommandList* pIarCMDList[] = { pICMDList.Get() };
+			pICMDQueue->ExecuteCommandLists(ARRAYSIZE(pIarCMDList), pIarCMDList);
+
+			const UINT64 n64CurFenceValue = n64FenceValue;
+			GRS_THROW_IF_FAILED(pICMDQueue->Signal(pIFence1.Get(), n64CurFenceValue));
+			n64FenceValue++;
+			GRS_THROW_IF_FAILED(pIFence1->SetEventOnCompletion(n64CurFenceValue, hEventFence1));
 		}
 
 		//消息循环（渲染主体）
@@ -1140,7 +1292,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 			UpdateWindow(hWnd);
 
 			////首次执行，下面两句模拟一帧渲染结束时的变量状态
-			SetEvent(hEventFence1);
+			//SetEvent(hEventFence1);
 			//GRS_THROW_IF_FAILED(pICMDList->Close());
 			//const DWORD dwWaitMsgVal = arWaitHandles.GetCount();
 
@@ -1152,15 +1304,22 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 			arWaitHandles.Add(hWaitTime);
 
 
-			float fovAngleY = 120.0f;
+			float fovAngleY = 90.0f;
 			float fAspectRatio = static_cast<float>(iWidth) / static_cast<float>(iHeight);
 			XMMATRIX mxView = XMMatrixLookAtLH(g_vEye, g_vLookAt, g_vUp);
 			XMMATRIX mxProj = XMMatrixPerspectiveFovLH(XMConvertToRadians(fovAngleY), fAspectRatio, 1.0f, 125.0f);
 			XMMATRIX mxViewProj = mxView * mxProj;
 
+			ULONGLONG n64tmFrameStart = ::GetTickCount64();
+			ULONGLONG n64tmCurrent = n64tmFrameStart;
+			float fPalstance = 1.0f * XM_PI / 180.0f;	//物体旋转的角速度，单位：弧度/秒
+			//计算旋转角度需要的变量
+			double dModelRotationYAngle = 0.0f;
+
 			// 开始消息循环，并在其中不断渲染
 			DWORD dwRet = 0;
 			BOOL bExit = FALSE;
+
 			while (!bExit)
 			{
 				dwRet = ::MsgWaitForMultipleObjects(
@@ -1173,8 +1332,25 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 				{//hEventFence1 有信号状态:一帧渲染结束，继续下一帧 
 					//---------------------------------------------------------------------------------------------
 					// 更新下常量，相当于OnUpdate()
-					pstCBScene->m_vCameraPos = g_vEye;
+					n64tmCurrent = ::GetTickCount();
+					//计算旋转的角度：旋转角度(弧度) = 时间(秒) * 角速度(弧度/秒)
+					dModelRotationYAngle += ((n64tmCurrent - n64tmFrameStart) / 1000.0f) * fPalstance;
+
+					//旋转角度是2PI周期的倍数，去掉周期数，只留下相对0弧度开始的小于2PI的弧度即可
+					if (dModelRotationYAngle > XM_2PI)
+					{
+						dModelRotationYAngle = fmod(dModelRotationYAngle, XM_2PI);
+					}
+
+					//计算 World 矩阵 这里是个旋转矩阵（暂时未实现，先注释）
+					//pstCBScene->m_mxWorld = XMMatrixMultiply(
+					//	XMMatrixTranslationFromVector(-pstCBScene->m_vCameraPos)
+					//	, XMMatrixRotationY(static_cast<float>(dModelRotationYAngle)));
+					pstCBScene->m_mxWorld = XMMatrixIdentity();
+
 					pstCBScene->m_mxP2W = XMMatrixInverse(nullptr, mxViewProj);
+					
+					pstCBScene->m_vCameraPos = g_vEye;
 					pstCBScene->m_vLightPos = XMLoadFloat4(&g_v4LightPosition);
 					pstCBScene->m_vLightAmbientColor = XMLoadFloat4(&g_v4LightAmbientColor);
 					pstCBScene->m_vLightDiffuseColor = XMLoadFloat4(&g_v4LightDiffuseColor);
@@ -1210,51 +1386,75 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    l
 					//---------------------------------------------------------------------------------------------
 					//开始渲染
 					D3D12_DISPATCH_RAYS_DESC stDispatchRayDesc = {};
-					stDispatchRayDesc.HitGroupTable.StartAddress 
+					stDispatchRayDesc.HitGroupTable.StartAddress
 						= pIRESHitGroupShaderTable->GetGPUVirtualAddress();
-					stDispatchRayDesc.HitGroupTable.SizeInBytes 
+					stDispatchRayDesc.HitGroupTable.SizeInBytes
 						= pIRESHitGroupShaderTable->GetDesc().Width;
-					stDispatchRayDesc.HitGroupTable.StrideInBytes 
+					stDispatchRayDesc.HitGroupTable.StrideInBytes
 						= stDispatchRayDesc.HitGroupTable.SizeInBytes;
 
-					stDispatchRayDesc.MissShaderTable.StartAddress 
+					stDispatchRayDesc.MissShaderTable.StartAddress
 						= pIRESMissShaderTable->GetGPUVirtualAddress();
-					stDispatchRayDesc.MissShaderTable.SizeInBytes 
+					stDispatchRayDesc.MissShaderTable.SizeInBytes
 						= pIRESMissShaderTable->GetDesc().Width;
-					stDispatchRayDesc.MissShaderTable.StrideInBytes 
+					stDispatchRayDesc.MissShaderTable.StrideInBytes
 						= stDispatchRayDesc.MissShaderTable.SizeInBytes;
 
-					stDispatchRayDesc.RayGenerationShaderRecord.StartAddress 
+					stDispatchRayDesc.RayGenerationShaderRecord.StartAddress
 						= pIRESRayGenShaderTable->GetGPUVirtualAddress();
-					stDispatchRayDesc.RayGenerationShaderRecord.SizeInBytes 
+					stDispatchRayDesc.RayGenerationShaderRecord.SizeInBytes
 						= pIRESRayGenShaderTable->GetDesc().Width;
 					stDispatchRayDesc.Width = iWidth;
 					stDispatchRayDesc.Height = iHeight;
 					stDispatchRayDesc.Depth = 1;
 
 					pICMDList->SetComputeRootSignature(pIRSGlobal.Get());
-					pICMDList->SetComputeRootConstantBufferView(2
-						, pICBFrameConstant->GetGPUVirtualAddress());
+					pIDXRCmdList->SetPipelineState1(pIDXRPSO.Get());
 
-					pIDXRCmdList->SetDescriptorHeaps(1, pIDXRUAVHeap.GetAddressOf());
-					// Set index and successive vertex buffer decriptor tables
-					CD3DX12_GPU_DESCRIPTOR_HANDLE objIBHandle(
-						pIDXRUAVHeap->GetGPUDescriptorHandleForHeapStart()
-						, c_nDSHIndxIBView
-						, nSRVDescriptorSize);
-					pICMDList->SetComputeRootDescriptorTable(3, objIBHandle);
+					ID3D12DescriptorHeap* ppDescriptorHeaps[] = { pIDXRUAVHeap.Get(),pISampleHeap.Get() };
+					pIDXRCmdList->SetDescriptorHeaps(_countof(ppDescriptorHeaps), ppDescriptorHeaps);
+
 					CD3DX12_GPU_DESCRIPTOR_HANDLE objUAVHandle(
 						pIDXRUAVHeap->GetGPUDescriptorHandleForHeapStart()
 						, c_nDSHIndxUAVOutput
 						, nSRVDescriptorSize);
-					pICMDList->SetComputeRootDescriptorTable(0, objUAVHandle);
+
+					pICMDList->SetComputeRootDescriptorTable(
+						0
+						, objUAVHandle);
 
 					pICMDList->SetComputeRootShaderResourceView(
 						1
 						, pIUAVTopLevelAccelerationStructure->GetGPUVirtualAddress());
-					pIDXRCmdList->SetPipelineState1(pIDXRPSO.Get());
 
-					pIDXRCmdList->DispatchRays(&stDispatchRayDesc);	
+					pICMDList->SetComputeRootConstantBufferView(
+						2
+						, pICBFrameConstant->GetGPUVirtualAddress());
+
+					// 设置Index和Vertex的描述符堆句柄
+					CD3DX12_GPU_DESCRIPTOR_HANDLE objIBHandle(
+						pIDXRUAVHeap->GetGPUDescriptorHandleForHeapStart()
+						, c_nDSHIndxIBView
+						, nSRVDescriptorSize);
+					pICMDList->SetComputeRootDescriptorTable(
+						3
+						, objIBHandle);
+
+					//设置两个纹理的描述符堆句柄
+					CD3DX12_GPU_DESCRIPTOR_HANDLE objTxtureHandle(
+						pIDXRUAVHeap->GetGPUDescriptorHandleForHeapStart()
+						, c_nDSNIndxTexture
+						, nSRVDescriptorSize);
+					pICMDList->SetComputeRootDescriptorTable(
+						4
+						, objTxtureHandle);
+
+					pICMDList->SetComputeRootDescriptorTable(
+						5
+						, pISampleHeap->GetGPUDescriptorHandleForHeapStart()
+					);
+
+					pIDXRCmdList->DispatchRays(&stDispatchRayDesc);
 					//---------------------------------------------------------------------------------------------
 
 					D3D12_RESOURCE_BARRIER preCopyBarriers[2];
