@@ -74,20 +74,16 @@ float3 HitWorldPosition()
 }
 
 // Generate a ray in world space for a camera pixel corresponding to an index from the dispatched 2D grid.
-inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 direction)
+inline void GenerateCameraRay(float2 v2PixelSize,uint2 index, out float3 origin, out float3 direction)
 {
-    float2 xy = index + 0.5f; // center in the middle of the pixel.
-    float2 screenPos = xy / DispatchRaysDimensions().xy * 2.0 - 1.0;
+	float2 v2Origin = float2(
+		v2PixelSize.x * (index.x - 0.5f * (DispatchRaysDimensions().x - 1.0f))
+		,- v2PixelSize.y * (index.y - 0.5f * (DispatchRaysDimensions().y - 1.0f)));
 
-    // Invert Y for DirectX-style coordinates.
-    screenPos.y = -screenPos.y;
-
-    // Unproject the pixel coordinate into a ray.
-    float4 world = mul(float4(screenPos, 0, 1), g_stSceneCB.m_mxP2W);
-	float4 world = mul(float4(v2Origin, 0, 1), g_stSceneCB.m_mxP2W);
+	float4 world = mul( g_stSceneCB.m_mxView,float4(v2Origin, 1.0f, 1.0f));
     world.xyz /= world.w;
 
-    origin = float4(g_stSceneCB.m_vCameraPos.xyz,1.0f).xyz;
+    origin = g_stSceneCB.m_vCameraPos.xyz;
 	direction = normalize(world.xyz - origin);
 }
 
@@ -109,7 +105,7 @@ void MyRaygenShader()
     float3 origin;
     
     // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
-    GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
+    GenerateCameraRay(g_stSceneCB.m_v2PixelSize,DispatchRaysIndex().xy, origin, rayDir);
 
     // Trace the ray.
     // Set the ray's extents.
@@ -148,10 +144,10 @@ void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
 	//直接从Normal Map中读取法线
     float3 triangleNormal = g_normalmap.SampleLevel(g_sampler, txCod.xy, 0).rgb;
 	triangleNormal = -1.0f * (2.0f * triangleNormal - 1.0f);
+	triangleNormal = mul(ObjectToWorld3x4(), float4(triangleNormal,0.0f));
 	triangleNormal = normalize(triangleNormal);
 
     float4 diffuseColor = CalculateDiffuseLighting(hitPosition, triangleNormal);
-    float4 color = g_stSceneCB.m_vLightAmbientColor + diffuseColor;
 
 	float4 txColor = g_texture.SampleLevel(g_sampler, txCod.xy,0);
 
