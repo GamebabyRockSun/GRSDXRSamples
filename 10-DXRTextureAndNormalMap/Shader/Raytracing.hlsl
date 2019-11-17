@@ -84,7 +84,7 @@ inline void GenerateCameraRay(uint2 index, out float3 origin, out float3 directi
 
     // Unproject the pixel coordinate into a ray.
     float4 world = mul(float4(screenPos, 0, 1), g_stSceneCB.m_mxP2W);
-
+	float4 world = mul(float4(v2Origin, 0, 1), g_stSceneCB.m_mxP2W);
     world.xyz /= world.w;
 
     origin = float4(g_stSceneCB.m_vCameraPos.xyz,1.0f).xyz;
