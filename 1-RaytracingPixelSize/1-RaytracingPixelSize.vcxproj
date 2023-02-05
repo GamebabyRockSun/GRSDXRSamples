@@ -23,7 +23,7 @@
     <ProjectGuid>{E1289839-3F31-4BE0-855B-EE422879B525}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>My1RaytracingPixelSize</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -147,12 +147,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\Commons\DDSTextureLoader12.cpp" />
     <ClCompile Include="1-RaytracingPixelSize.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Commons\dds.h" />
-    <ClInclude Include="..\Commons\DDSTextureLoader12.h" />
     <ClInclude Include="Shader\HlslCompat.h" />
     <ClInclude Include="Shader\RayTracingHlslCompat.h" />
   </ItemGroup>

@@ -23,7 +23,7 @@
     <ProjectGuid>{1EC891B7-B1B1-4ED1-8EB0-922A6672F1C8}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>My9RayTracingBase</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

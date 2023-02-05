@@ -22,7 +22,7 @@
     <DefaultLanguage>en-US</DefaultLanguage>
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
     <ApplicationEnvironment>title</ApplicationEnvironment>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
@@ -354,6 +354,32 @@ PrebuildCheck.bat</Command>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.0</ShaderModel>
     </FxCompile>
+    <FxCompile Include="MinimalTraverseShaderLib.hlsl">
+      <VariableName>g_p%(Filename)</VariableName>
+      <HeaderFileOutput>$(SolutionDir)$(Configuration)\$(Platform)\CompiledShaders\%(Filename).h</HeaderFileOutput>
+      <ObjectFileOutput>$(SolutionDir)$(Configuration)\$(Platform)\Shaders\%(Filename).cso</ObjectFileOutput>
+      <FileType>Document</FileType>
+      <ShaderType>Library</ShaderType>
+      <ShaderModel>6.1</ShaderModel>
+      <Outputs>$(SolutionDir)..\Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
+      <Message>Building DXC Library</Message>
+      <AdditionalOptions> -HV 2017 -O4 %(AdditionalOptions)</AdditionalOptions>
+      <EntryPointName>
+      </EntryPointName>
+    </FxCompile>
+    <FxCompile Include="NullTraverseLib.hlsl">
+      <VariableName>g_p%(Filename)</VariableName>
+      <HeaderFileOutput>$(SolutionDir)$(Configuration)\$(Platform)\CompiledShaders\%(Filename).h</HeaderFileOutput>
+      <ObjectFileOutput>$(SolutionDir)$(Configuration)\$(Platform)\Shaders\%(Filename).cso</ObjectFileOutput>
+      <FileType>Document</FileType>
+      <ShaderType>Library</ShaderType>
+      <ShaderModel>6.1</ShaderModel>
+      <Outputs>$(SolutionDir)..\Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
+      <Message>Building DXC Library</Message>
+      <AdditionalOptions> -HV 2017 -O4 %(AdditionalOptions)</AdditionalOptions>
+      <EntryPointName>
+      </EntryPointName>
+    </FxCompile>
     <FxCompile Include="RearrangeBVHs.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.0</ShaderModel>
@@ -370,6 +396,19 @@ PrebuildCheck.bat</Command>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.0</ShaderModel>
     </FxCompile>
+    <FxCompile Include="StateMachineLib.hlsl">
+      <VariableName>g_p%(Filename)</VariableName>
+      <HeaderFileOutput>$(SolutionDir)$(Configuration)\$(Platform)\CompiledShaders\%(Filename).h</HeaderFileOutput>
+      <ObjectFileOutput>$(SolutionDir)$(Configuration)\$(Platform)\Shaders\%(Filename).cso</ObjectFileOutput>
+      <FileType>Document</FileType>
+      <ShaderType>Library</ShaderType>
+      <ShaderModel>6.1</ShaderModel>
+      <Outputs>$(SolutionDir)..\Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
+      <Message>Building DXC Library</Message>
+      <AdditionalOptions> -HV 2017 -O4 %(AdditionalOptions)</AdditionalOptions>
+      <EntryPointName>
+      </EntryPointName>
+    </FxCompile>
     <FxCompile Include="TopLevelBuildBVHSplits.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">6.0</ShaderModel>
@@ -385,6 +424,19 @@ PrebuildCheck.bat</Command>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="TraverseShaderLib.hlsl">
+      <VariableName>g_p%(Filename)</VariableName>
+      <HeaderFileOutput>$(SolutionDir)$(Configuration)\$(Platform)\CompiledShaders\%(Filename).h</HeaderFileOutput>
+      <ObjectFileOutput>$(SolutionDir)$(Configuration)\$(Platform)\Shaders\%(Filename).cso</ObjectFileOutput>
+      <FileType>Document</FileType>
+      <ShaderType>Library</ShaderType>
+      <ShaderModel>6.1</ShaderModel>
+      <Outputs>$(SolutionDir)..\Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
+      <Message>Building DXC Library</Message>
+      <AdditionalOptions> -HV 2017 -O4 %(AdditionalOptions)</AdditionalOptions>
+      <EntryPointName>
+      </EntryPointName>
     </FxCompile>
     <FxCompile Include="TreeletReorder.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Compute</ShaderType>
@@ -415,39 +467,6 @@ PrebuildCheck.bat</Command>
       </ExcludedFromBuild>
       <FileType>Document</FileType>
     </None>
-    <FxCompile Include="*Lib.hlsl">
-      <VariableName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">g_p%(Filename)</VariableName>
-      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)$(Configuration)\$(Platform)\CompiledShaders\%(Filename).h</HeaderFileOutput>
-      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)$(Configuration)\$(Platform)\Shaders\%(Filename).cso</ObjectFileOutput>
-      <VariableName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">g_p%(Filename)</VariableName>
-      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)$(Configuration)\$(Platform)\CompiledShaders\%(Filename).h</HeaderFileOutput>
-      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)$(Configuration)\$(Platform)\Shaders\%(Filename).cso</ObjectFileOutput>
-      <VariableName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">g_p%(Filename)</VariableName>
-      <HeaderFileOutput Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">$(SolutionDir)$(Configuration)\$(Platform)\CompiledShaders\%(Filename).h</HeaderFileOutput>
-      <ObjectFileOutput Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">$(SolutionDir)$(Configuration)\$(Platform)\Shaders\%(Filename).cso</ObjectFileOutput>
-      <FileType>Document</FileType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Library</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Library</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Library</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.1</ShaderModel>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.1</ShaderModel>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">6.1</ShaderModel>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)..\Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)..\Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">$(SolutionDir)..\Build_VS15\$(Platform)\$(Configuration)\Output\$(ProjectName)\CompiledShaders\%(Filename).h</Outputs>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building DXC Library</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building DXC Library</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Building DXC Library</Message>
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"> -HV 2017 -O4 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'"> -HV 2017 -O4 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Profile|x64'"> -HV 2017 -O4 %(AdditionalOptions)</AdditionalOptions>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-      </EntryPointName>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
-      </EntryPointName>
-    </FxCompile>
     <FxCompile Include="TopLevelLoadAABBsFromArrayOfPointers.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.0</ShaderModel>

@@ -69,10 +69,10 @@ void main( uint3 Gid : SV_GroupID, uint GI : SV_GroupIndex )
     // This is better unrolled because it reduces ALU and because some
     // architectures can load/store two LDS items in a single instruction
     // as long as their separation is a compile-time constant.
-    [unroll]
+    //[unroll]
     for (k = 2; k <= 2048; k <<= 1)
     {
-        [unroll]
+        //[unroll]
         for (uint j = k / 2; j > 0; j /= 2)
         {
             uint Index2 = InsertOneBit(GI, j);
